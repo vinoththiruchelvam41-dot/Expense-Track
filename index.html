@@ -122,6 +122,11 @@
     .stat{background:var(--panel2);border-radius:15px;padding:13px;min-width:0}
     .stat span{display:block;color:var(--muted);font-size:12px}
     .stat b{display:block;font-size:19px;margin-top:5px;overflow-wrap:anywhere}
+    .salary-stat{border:1px solid rgba(79,140,255,.35)}
+    .salary-editor{display:flex;align-items:center;gap:7px;margin-top:5px;min-width:0}
+    .salary-editor .salary-prefix{display:inline;color:var(--text);font-size:15px;font-weight:800;flex:0 0 auto}
+    .salary-input{width:100%;min-width:0;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:#0a1423;color:var(--text);font-size:19px;font-weight:800;padding:6px 8px;outline:none}
+    .salary-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(79,140,255,.13)}
     .saving-stat{border:1px solid rgba(53,208,127,.45);background:#0f2a20}
     .saving-stat b{color:#5de49c}
     label{font-size:12px;color:#a8b7cb;display:block;margin-bottom:6px}
@@ -209,11 +214,18 @@
     <div id="cycleDates" class="sub" style="margin-top:8px"></div>
 
     <div class="grid2" style="margin-top:14px">
-      <div class="stat"><span>Salary</span><b>QAR 6,000.00</b></div>
+      <div class="stat salary-stat">
+        <span>Salary • editable</span>
+        <div class="salary-editor">
+          <span class="salary-prefix">QAR</span>
+          <input id="salaryInput" class="salary-input" type="number" inputmode="decimal" min="0" step="0.01" value="6000.00" aria-label="Salary amount for selected month">
+        </div>
+      </div>
       <div class="stat"><span>Spent</span><b id="spent">QAR 0.00</b></div>
       <div class="stat"><span>Remaining</span><b id="remaining">QAR 6,000.00</b></div>
       <div class="stat saving-stat"><span>Savings</span><b id="savings">QAR 0.00</b></div>
     </div>
+    <div id="salaryMsg" class="notice" style="margin-top:9px">Salary is editable and saved separately for each month.</div>
     <div style="margin-top:13px">
       <div id="usageText" class="sub">0% of salary used</div>
       <div class="progress"><div id="usageBar" style="width:0%"></div></div>
@@ -323,14 +335,14 @@
     <div class="notice" style="margin-top:9px">Expense data is encrypted in browser storage using your login password. Backups are also encrypted.</div>
   </section>
 
-  <div class="notice">Salary cycle: 27th of the previous month → 26th of the selected month. Full dates are shown as DD / MM / YYYY.</div>
+  <div class="notice">Salary cycle: 27th of the previous month → 26th of the selected month. Salary can be edited independently for every month. Full dates are shown as DD / MM / YYYY.</div>
 </main>
 
 <script>
 (async()=>{
   const USERNAME="Administrator";
   const PASS_HASH="0279e9c1cb74a31d827e9ecea53945b3b6f66a6a105643cd9ae5030305a60635";
-  const SALARY=6000;
+  const DEFAULT_SALARY=6000;
   const STORAGE_KEY="expenseTrack_admin_encrypted_v1";
   const START={y:2026,m:8}, END={y:2030,m:11};
   const $=id=>document.getElementById(id);
@@ -340,7 +352,7 @@
   const fmt=n=>"QAR "+Number(n||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
   const monthKey=(y,m)=>`${y}-${pad(m+1)}`;
 
-  let store={months:{}};
+  let store={months:{},salaries:{}};
   let selected={y:2026,m:8};
   let cryptoKey=null;
   let unlocked=false;
@@ -370,7 +382,7 @@
     if(!raw){
       const salt=rand(16);
       cryptoKey=await deriveKey(password,salt);
-      store={months:{}};
+      store={months:{},salaries:{}};
       await persist(salt);
       return;
     }
@@ -380,7 +392,12 @@
     const plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(p.iv)},key,unb64(p.cipher));
     cryptoKey=key;
     const parsed=JSON.parse(dec.decode(plain));
-    store=parsed&&parsed.months?parsed:{months:{}};
+    if(parsed&&parsed.months){
+      store=parsed;
+      if(!store.salaries||typeof store.salaries!=="object")store.salaries={};
+    }else{
+      store={months:{},salaries:{}};
+    }
   }
   async function persist(existingSalt){
     if(!cryptoKey)return;
@@ -406,10 +423,14 @@
   function bounds(y,m){const p=prev(y,m);return{start:`${p.y}-${pad(p.m+1)}-27`,end:`${y}-${pad(m+1)}-26`}}
   function displayDate(iso){const [y,m,d]=iso.split("-");return `${d} / ${m} / ${y}`}
   function monthData(y=selected.y,m=selected.m){const k=monthKey(y,m);if(!store.months[k])store.months[k]=[];return store.months[k]}
-  function totals(list=monthData()){
+  function salaryFor(y=selected.y,m=selected.m){
+    const v=Number(store.salaries&&store.salaries[monthKey(y,m)]);
+    return Number.isFinite(v)&&v>=0?v:DEFAULT_SALARY;
+  }
+  function totals(list=monthData(),salary=salaryFor()){
     const spent=list.reduce((a,x)=>a+Number(x.amount||0),0);
     const savings=list.filter(x=>x.category==="Savings").reduce((a,x)=>a+Number(x.amount||0),0);
-    return{spent,savings,remaining:Math.max(0,SALARY-spent)};
+    return{spent,savings,remaining:Math.max(0,salary-spent)};
   }
   function escapeHtml(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 
@@ -452,7 +473,8 @@
     const colors=["#4f8cff","#35d07f","#f7c55b","#a970ff","#32c7d9","#ff6b85","#8bd450","#8ea1bb"];
     ctx.beginPath();ctx.strokeStyle="#1b2a42";ctx.lineWidth=34;ctx.arc(105,105,72,0,Math.PI*2);ctx.stroke();
     let start=-Math.PI/2;
-    entries.forEach(([name,val],i)=>{const a=Math.min(Math.PI*2,val/SALARY*Math.PI*2);ctx.beginPath();ctx.strokeStyle=name==="Savings"?"#35d07f":colors[i%colors.length];ctx.lineWidth=34;ctx.arc(105,105,72,start,start+a);ctx.stroke();start+=a});
+    const salary=salaryFor(), chartBase=Math.max(salary,1);
+    entries.forEach(([name,val],i)=>{const a=Math.min(Math.PI*2,val/chartBase*Math.PI*2);ctx.beginPath();ctx.strokeStyle=name==="Savings"?"#35d07f":colors[i%colors.length];ctx.lineWidth=34;ctx.arc(105,105,72,start,start+a);ctx.stroke();start+=a});
     ctx.beginPath();ctx.fillStyle="#08111f";ctx.arc(105,105,52,0,Math.PI*2);ctx.fill();
     ctx.fillStyle="#8ea1bb";ctx.font="12px -apple-system";ctx.textAlign="center";ctx.fillText("Remaining",105,101);
     ctx.fillStyle="#f8fbff";ctx.font="700 15px -apple-system";ctx.fillText(fmt(totals().remaining).replace(".00",""),105,123);
@@ -464,7 +486,7 @@
   function renderYear(){
     const y=selected.y, months=options.filter(o=>o.y===y);let spent=0,savings=0,recorded=0;
     months.forEach(o=>{const a=store.months[o.key]||[];if(a.length)recorded++;spent+=a.reduce((s,x)=>s+Number(x.amount||0),0);savings+=a.filter(x=>x.category==="Savings").reduce((s,x)=>s+Number(x.amount||0),0)});
-    const totalSalary=months.length*SALARY;
+    const totalSalary=months.reduce((sum,o)=>sum+salaryFor(o.y,o.m),0);
     $("yearLabel").textContent=`${y} • ${months.length} salary month${months.length===1?"":"s"} included`;
     $("yearSalary").textContent=fmt(totalSalary);$("yearSpent").textContent=fmt(spent);$("yearSavings").textContent=fmt(savings);
     $("yearRemaining").textContent=fmt(Math.max(0,totalSalary-spent));$("monthsRecorded").textContent=recorded;$("avgSpend").textContent=fmt(recorded?spent/recorded:0);
@@ -477,10 +499,13 @@
   }
 
   function render(){
-    const b=bounds(selected.y,selected.m),t=totals();
+    const b=bounds(selected.y,selected.m),salary=salaryFor(),t=totals(monthData(),salary);
     $("cycleDates").textContent=`Salary cycle: ${displayDate(b.start)} → ${displayDate(b.end)}`;
+    $("salaryInput").value=salary.toFixed(2);
     $("spent").textContent=fmt(t.spent);$("remaining").textContent=fmt(t.remaining);$("savings").textContent=fmt(t.savings);
-    const pct=Math.min(100,t.spent/SALARY*100);$("usageText").textContent=`${pct.toFixed(1)}% of salary used`;$("usageBar").style.width=pct+"%";
+    const rawPct=salary>0?t.spent/salary*100:(t.spent>0?100:0),barPct=Math.min(100,rawPct);
+    $("usageText").textContent=salary>0?`${rawPct.toFixed(1)}% of salary used`:(t.spent>0?"Salary is QAR 0.00 • spending exceeds salary":"Set salary amount to calculate usage");
+    $("usageBar").style.width=barPct+"%";
     const p=prev(selected.y,selected.m),n=next(selected.y,selected.m);$("prevMonth").disabled=!inRange(p.y,p.m);$("nextMonth").disabled=!inRange(n.y,n.m);
     renderTransactions();renderChart();renderYear();renderAll();
   }
@@ -514,6 +539,22 @@
   $("monthSelect").onchange=()=>{const [y,m]=$("monthSelect").value.split("-").map(Number);setMonth(y,m-1)};
   $("prevMonth").onclick=()=>{const p=prev(selected.y,selected.m);setMonth(p.y,p.m)};
   $("nextMonth").onclick=()=>{const n=next(selected.y,selected.m);setMonth(n.y,n.m)};
+
+  $("salaryInput").onchange=async()=>{
+    const input=$("salaryInput"),v=Number(input.value);
+    if(!Number.isFinite(v)||v<0){
+      $("salaryMsg").textContent="Enter a valid salary amount (0 or more).";
+      input.value=salaryFor().toFixed(2);
+      return;
+    }
+    const salary=Math.round(v*100)/100;
+    if(!store.salaries||typeof store.salaries!=="object")store.salaries={};
+    store.salaries[monthKey(selected.y,selected.m)]=salary;
+    await persist();
+    $("salaryMsg").textContent=`Salary saved for ${monthNames[selected.m]} ${selected.y}: ${fmt(salary)}.`;
+    render();
+  };
+  $("salaryInput").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();e.currentTarget.blur()}};
   document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{$("category").value=b.dataset.cat;$("amount").focus()});
   $("filter").onchange=renderTransactions;
 
@@ -536,7 +577,7 @@
 
   $("exportBtn").onclick=()=>{
     const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return;
-    const blob=new Blob([JSON.stringify({version:1,app:"ExpenseTrack",encrypted:JSON.parse(raw)},null,2)],{type:"application/json"});
+    const blob=new Blob([JSON.stringify({version:2,app:"ExpenseTrack",encrypted:JSON.parse(raw)},null,2)],{type:"application/json"});
     const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="ExpenseTrack-encrypted-backup.json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
 
