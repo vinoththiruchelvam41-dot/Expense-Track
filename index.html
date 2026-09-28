@@ -335,7 +335,7 @@
     <div class="notice" style="margin-top:9px">Expense data is encrypted in browser storage using your login password. Backups are also encrypted.</div>
   </section>
 
-  <div class="notice">Salary cycle: 27th of the previous month → 26th of the selected month. Salary can be edited independently for every month. Full dates are shown as DD / MM / YYYY.</div>
+  <div class="notice">Salary cycle: 27th of the previous month → 26th of the selected month. Transaction dates can be entered from 01 / 09 / 2026 to 31 / 12 / 2030, including future dates. Salary can be edited independently for every month.</div>
 </main>
 
 <script>
@@ -345,6 +345,7 @@
   const DEFAULT_SALARY=6000;
   const STORAGE_KEY="expenseTrack_admin_encrypted_v1";
   const START={y:2026,m:8}, END={y:2030,m:11};
+  const APP_START="2026-09-01", APP_END="2030-12-31";
   const $=id=>document.getElementById(id);
   const enc=new TextEncoder(), dec=new TextDecoder();
   const pad=n=>String(n).padStart(2,"0");
@@ -441,8 +442,11 @@
     });
   }
   function syncDate(){
-    const b=bounds(selected.y,selected.m), today=new Date().toISOString().slice(0,10);
-    $("date").min=b.start;$("date").max=b.end;$("date").value=today>=b.start&&today<=b.end?today:b.end;
+    const input=$("date"), today=new Date().toISOString().slice(0,10);
+    input.min=APP_START;
+    input.max=APP_END;
+    if(input.value>=APP_START&&input.value<=APP_END)return;
+    input.value=today>=APP_START&&today<=APP_END?today:APP_START;
   }
   function setMonth(y,m){
     if(!inRange(y,m))return;selected={y,m};$("monthSelect").value=monthKey(y,m);syncDate();render();
@@ -561,9 +565,9 @@
   $("expenseForm").onsubmit=async e=>{
     e.preventDefault();
     const amount=Number($("amount").value),date=$("date").value,category=$("category").value,note=$("note").value.trim();
-    const b=bounds(selected.y,selected.m),t=totals();
+    const t=totals();
     if(!Number.isFinite(amount)||amount<=0){$("msg").textContent="Enter a valid amount.";return}
-    if(date<b.start||date>b.end){$("msg").textContent=`Date must be inside ${displayDate(b.start)} to ${displayDate(b.end)}.`;return}
+    if(!date||date<APP_START||date>APP_END){$("msg").textContent=`Date must be between ${displayDate(APP_START)} and ${displayDate(APP_END)}.`;return}
     if(amount>t.remaining){$("msg").textContent=`Only ${fmt(t.remaining)} remains this month.`;return}
     monthData().push({category,amount:Math.round(amount*100)/100,date,note,created:Date.now()});
     await persist();$("amount").value="";$("note").value="";
