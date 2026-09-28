@@ -199,7 +199,7 @@
   <div class="topbar">
     <div>
       <div class="app-title">ExpenseTrack</div>
-      <div class="sub">September 2026 → December 2030 • QAR</div>
+      <div class="sub">September 2026 → December 2035 • QAR</div>
     </div>
     <button id="logoutBtn" class="btn" type="button">🔒 Lock</button>
   </div>
@@ -315,7 +315,7 @@
   </section>
 
   <section class="card">
-    <div style="font-weight:800;margin-bottom:8px">2026–2030 overview</div>
+    <div style="font-weight:800;margin-bottom:8px">2026–2035 overview</div>
     <div class="grid2">
       <div class="stat saving-stat"><span>Total savings</span><b id="allSavings">QAR 0.00</b></div>
       <div class="stat"><span>Total expenses</span><b id="allSpent">QAR 0.00</b></div>
@@ -335,7 +335,7 @@
     <div class="notice" style="margin-top:9px">Expense data is encrypted in browser storage using your login password. Backups are also encrypted.</div>
   </section>
 
-  <div class="notice">Salary cycle: 27th of the previous month → 26th of the selected month. Transaction dates can be entered from 01 / 09 / 2026 to 31 / 12 / 2030, including future dates. Salary can be edited independently for every month.</div>
+  <div class="notice">Salary cycle: 27th of the previous month → 26th of the selected month. Transaction dates can be entered and changed from 01 / 09 / 2026 to 31 / 12 / 2035, including future dates. Salary can be edited independently for every month.</div>
 </main>
 
 <script>
@@ -344,8 +344,8 @@
   const PASS_HASH="0279e9c1cb74a31d827e9ecea53945b3b6f66a6a105643cd9ae5030305a60635";
   const DEFAULT_SALARY=6000;
   const STORAGE_KEY="expenseTrack_admin_encrypted_v1";
-  const START={y:2026,m:8}, END={y:2030,m:11};
-  const APP_START="2026-09-01", APP_END="2030-12-31";
+  const START={y:2026,m:8}, END={y:2035,m:11};
+  const APP_START="2026-09-01", APP_END="2035-12-31";
   const $=id=>document.getElementById(id);
   const enc=new TextEncoder(), dec=new TextDecoder();
   const pad=n=>String(n).padStart(2,"0");
