@@ -218,6 +218,16 @@ html[data-theme="dark"] .login-badge{background:#1d3441;border-color:#37505c;col
     </div>
   </section>
 
+  <section class="card" id="cutieCard">
+    <div class="card-title">♡ Cutie expenses <span>Selected salary month</span></div>
+    <div class="grid2">
+      <div class="stat"><span>Total spent on Cutie</span><b id="cutieTotal">QAR 0.00</b></div>
+      <div class="stat"><span>Transactions</span><b id="cutieCount">0</b></div>
+    </div>
+    <p class="notice">Track food, gifts, reloads, and other expenses for Cutie. These are included in your monthly spending.</p>
+    <div class="grid2"><button type="button" class="btn primary" data-cat="Cutie">+ Add expense</button><button type="button" class="btn" id="viewCutie">View expenses</button></div>
+  </section>
+
   <section class="card" id="addCard">
     <div style="font-weight:800;margin-bottom:12px">Add transaction</div>
     <form id="expenseForm">
@@ -234,6 +244,7 @@ html[data-theme="dark"] .login-badge{background:#1d3441;border-color:#37505c;col
         <option>Braces</option>
         <option>Subscriptions</option>
         <option>Family / Support</option>
+        <option>Cutie</option>
         <option>Debt Repayment</option>
         <option>Shopping</option>
         <option>Savings</option>
@@ -245,6 +256,7 @@ html[data-theme="dark"] .login-badge{background:#1d3441;border-color:#37505c;col
         <button type="button" class="chip" data-cat="Work Taxi">Work Taxi</button>
         <button type="button" class="chip" data-cat="Gym Taxi">Gym Taxi</button>
         <button type="button" class="chip" data-cat="Pocket Money">Pocket</button>
+        <button type="button" class="chip" data-cat="Cutie">♡ Cutie</button>
         <button type="button" class="chip save-chip" data-cat="Savings">💰 Savings</button>
       </div>
 
@@ -274,6 +286,7 @@ html[data-theme="dark"] .login-badge{background:#1d3441;border-color:#37505c;col
         <option value="All">All</option>
         <option value="Savings">Savings only</option>
         <option value="Expenses">Expenses only</option>
+        <option value="Cutie">Cutie only</option>
       </select>
     </div>
     <div id="transactions"></div>
@@ -436,6 +449,7 @@ html[data-theme="dark"] .login-badge{background:#1d3441;border-color:#37505c;col
     const f=$("filter").value;
     if(f==="Savings")list=list.filter(x=>x.category==="Savings");
     if(f==="Expenses")list=list.filter(x=>x.category!=="Savings");
+    if(f==="Cutie")list=list.filter(x=>x.category==="Cutie");
     list.sort((a,b)=>b.date.localeCompare(a.date)||(b.created||0)-(a.created||0));
     const box=$("transactions");box.innerHTML="";
     $("txCount").textContent=`${monthData().length} transaction${monthData().length===1?"":"s"}`;
@@ -483,6 +497,12 @@ html[data-theme="dark"] .login-badge{background:#1d3441;border-color:#37505c;col
     $("allSpent").textContent=fmt(spent);$("allSavings").textContent=fmt(savings);
   }
 
+  function renderCutie(){
+    const entries=monthData().filter(x=>x.category==="Cutie");
+    $("cutieTotal").textContent=fmt(entries.reduce((sum,x)=>sum+Number(x.amount||0),0));
+    $("cutieCount").textContent=String(entries.length);
+  }
+
   function render(){
     const b=bounds(selected.y,selected.m),salary=salaryFor(),t=totals(monthData(),salary);
     $("cycleDates").textContent=`Salary cycle: ${displayDate(b.start)} → ${displayDate(b.end)}`;
@@ -492,7 +512,7 @@ html[data-theme="dark"] .login-badge{background:#1d3441;border-color:#37505c;col
     $("usageText").textContent=salary>0?`${rawPct.toFixed(1)}% of salary used`:(t.spent>0?"Salary is QAR 0.00 • spending exceeds salary":"Set salary amount to calculate usage");
     $("usageBar").style.width=barPct+"%";
     const p=prev(selected.y,selected.m),n=next(selected.y,selected.m);$("prevMonth").disabled=!inRange(p.y,p.m);$("nextMonth").disabled=!inRange(n.y,n.m);
-    renderTransactions();renderChart();renderYear();renderAll();
+    renderTransactions();renderChart();renderYear();renderAll();renderCutie();
   }
 
   async function login(user,password){
@@ -542,6 +562,7 @@ html[data-theme="dark"] .login-badge{background:#1d3441;border-color:#37505c;col
   $("salaryInput").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();e.currentTarget.blur()}};
   document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{$("category").value=b.dataset.cat;$("amount").focus()});
   $("filter").onchange=renderTransactions;
+  $("viewCutie").onclick=()=>{$("filter").value="Cutie";renderTransactions();$("transactionsCard").scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"})};
 
   $("expenseForm").onsubmit=async e=>{
     e.preventDefault();
